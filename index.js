@@ -8,11 +8,13 @@ var createSendToken = require('./services/jwt.js').createSendToken;
 var googleAuth = require('./services/googleAuth.js');
 var facebookAuth = require('./services/facebookAuth.js');
 var localStrategy = require('./services/localStrategy.js');
-var jobs = require('./services/jobs.js');
 var emailVerification = require('./services/emailVerification.js');
 var apiErrorHandler = require('api-error-handler')
 var logger = require('morgan'),
-	cors = require('cors')
+	cors = require('cors'),
+	Err = require('./err')
+
+mongoose.connect('mongodb://localhost/psjwt');
 
 var app = express();
 //app.use(logger('dev'))
@@ -35,42 +37,33 @@ app.post('/auth/login', passport.authenticate('local-login', {session:false}), f
 });
 
 app.post('/auth/facebook', facebookAuth);
-
-app.get('/jobs', ensureAuthenticated, function(req, res) {
-	res.send([
-		'Cook',
-		'SuperHero',
-		'Unicorn Wisperer',
-		'Toast Inspector'
-	]);
-});
-
 app.post('/auth/google', googleAuth);
 
-mongoose.connect('mongodb://localhost/psjwt');
-
-
-app.use(function(req, res, next) {
-	res.status
-})
-app.use(apiErrorHandler)
+app.get('/jobs', ensureAuthenticated, function(req, res) {
+	res.send(['job1', 'job2']);
+});
 
 function ensureAuthenticated(req, res, next) {
 	var authHeaders  = req.headers.authorization && req.headers.authorization.split(' ')
 	if(!authHeaders || authHeaders.length < 2)
-		return res.status(401).json({message: 'Unauthorized'})
+		return next(Err(401, 'Unauthorized'))
 
 	var token = authHeaders[1];
 	var payload = jwt.decode(token, "shhh..");
 
 	if (!payload.sub)
-		return res.status(401).json({message: 'Authentication failed'})
+		return next(Err(401, 'Authentication failed'))
 
 	if (!req.headers.authorization)
-		return res.status(401).json({message: 'You are not authorized'})
+		return next(Err(401, 'You are not authorized'))
 
 	next();
 };
+
+app.use(function(req, res) {
+	next(Err(404, 'Not Found'))
+})
+app.use(apiErrorHandler())
 
 var server = app.listen(1337, function () {
 	console.log('api listening on ', server.address().port);
